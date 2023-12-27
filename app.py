@@ -1,14 +1,53 @@
 import tkinter as tk
-from tkinter import Toplevel
+from tkinter import Toplevel, ttk
 from PIL import ImageGrab
+import pytesseract
+import easyocr
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 class TransparentWindow:
     def __init__(self, master):
         self.master = master
         self.master.geometry('400x300+200+200')  # Default size and position
         self.master.wait_visibility(self.master)
-        self.master.attributes('-alpha', 0.3)  # Semi-transparent
+        # self.master.attributes('-alpha', 0.3)  # Semi-transparent
+        self.master.wm_attributes('-transparentcolor', '#ab23ff')
         
+        # Create a custom title bar
+        title_bar = tk.Frame(self.master, bg='black', relief='raised', bd=2)
+        title_bar.pack(fill=tk.X)
+        title_bar.bind('<Button-1>', self.start_move)
+        title_bar.bind('<ButtonRelease-1>', self.stop_move)
+        title_bar.bind('<B1-Motion>', self.on_move)
+
+        # Add a close button to the custom title bar
+        close_button = tk.Button(title_bar, text='X', command=self.master.destroy)
+        close_button.pack(side=tk.RIGHT)
+        
+        content = tk.Frame(self.master, bg='#ab23ff', bd=1, highlightbackground="black", highlightthickness=1)
+        content.pack(fill=tk.BOTH, expand=True)
+
+    def start_move(self, event):
+        global x, y
+        x = event.x
+        y = event.y
+
+    def stop_move(self, event):
+        global x, y
+        x = None
+        y = None
+
+    def on_move(self, event):
+        global x, y
+        deltax = event.x - x
+        deltay = event.y - y
+        x0 = self.master.winfo_x() + deltax
+        y0 = self.master.winfo_y() + deltay
+        self.master.geometry(f"+{x0}+{y0}")
+
+    def resize(self, event):
+        self.master.geometry(f'{event.width}x{event.height}')        
 
 class StartUI:
     def __init__(self, master):
@@ -32,11 +71,12 @@ class StartUI:
             self.transparent_window.destroy()
 
         self.transparent_window = Toplevel(self.master)
+        self.transparent_window.overrideredirect(True)
         TransparentWindow(self.transparent_window)
 
     def capture_screen(self):
         if self.transparent_window:
-            self.transparent_window.master.overrideredirect(True)
+            self.transparent_window.attributes('-alpha', 0.0)
             x1 = self.transparent_window.winfo_x()
             y1 = self.transparent_window.winfo_y()
             x2 = x1 + self.transparent_window.winfo_width()
@@ -45,8 +85,12 @@ class StartUI:
             # Capture the screen region defined by the transparent window
             img = ImageGrab.grab(bbox=(x1, y1, x2, y2))
             # img.save("capture.png")  # Save or handle as needed
-            img.show()  # Show the captured image for demonstration
-            self.transparent_window.master.overrideredirect(False)
+            self.transparent_window.attributes('-alpha', 1.0)
+
+            reader = easyocr.Reader(['ko', 'en'])
+            # text = pytesseract.image_to_string(img, lang='kor+eng+jpn')
+            text = reader.readtext(img, detail = 0)
+            print(text)
     
     def setActive(self, overlay):
         overlay.lift()
